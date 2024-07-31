@@ -333,6 +333,11 @@ def run(args: argparse.Namespace) -> None:
             forces_weight=args.forces_weight,
             dipole_weight=args.dipole_weight,
         )
+    elif args.loss == "atomic_weighted_energy_forces":
+        loss_fn = modules.AtomicWeightedEnergyForcesLoss(
+            energy_weight=args.energy_weight,
+            forces_weight=args.forces_weight
+        )
     else:
         # Unweighted Energy and Forces loss by default
         loss_fn = modules.WeightedEnergyForcesLoss(energy_weight=1.0, forces_weight=1.0)

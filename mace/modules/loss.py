@@ -9,6 +9,26 @@ import torch
 from mace.tools import TensorDict
 from mace.tools.torch_geometric import Batch
 
+def atomic_weighted_mean_squared_error_forces(ref: Batch, pred: TensorDict) -> torch.Tensor:
+    # forces: [n_atoms, 3]
+    configs_weight = torch.repeat_interleave(
+        ref.weight, ref.ptr[1:] - ref.ptr[:-1]
+    ).unsqueeze(
+        -1
+    )  # [n_atoms, 1]
+    configs_forces_weight = torch.repeat_interleave(
+        ref.forces_weight, ref.ptr[1:] - ref.ptr[:-1]
+    ).unsqueeze(
+        -1
+    )  # [n_atoms, 1]
+
+    atomic_weights = ref.atomic_weights
+    loss = torch.mean(
+        configs_weight
+        * configs_forces_weight
+        * torch.square(atomic_weights * (ref["forces"] - pred["forces"]))
+    )  # []
+    return loss
 
 def mean_squared_error_energy(ref: Batch, pred: TensorDict) -> torch.Tensor:
     # energy: [n_graphs, ]
@@ -185,7 +205,29 @@ class WeightedForcesLoss(torch.nn.Module):
     def __repr__(self):
         return f"{self.__class__.__name__}(" f"forces_weight={self.forces_weight:.3f})"
 
+class AtomicWeightedEnergyForcesLoss(torch.nn.Module):
+    def __init__(self, energy_weight=1.0, forces_weight=1.0) -> None:
+        super().__init__()
+        self.register_buffer(
+            "energy_weight",
+            torch.tensor(energy_weight, dtype=torch.get_default_dtype()),
+        )
+        self.register_buffer(
+            "forces_weight",
+            torch.tensor(forces_weight, dtype=torch.get_default_dtype()),
+        )
 
+    def forward(self, ref: Batch, pred: TensorDict) -> torch.Tensor:
+        return self.energy_weight * weighted_mean_squared_error_energy(
+            ref, pred
+        ) + self.forces_weight * atomic_weighted_mean_squared_error_forces(ref, pred)
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}(energy_weight={self.energy_weight:.3f}, "
+            f"forces_weight={self.forces_weight:.3f})"
+        )
+        
 class WeightedEnergyForcesStressLoss(torch.nn.Module):
     def __init__(self, energy_weight=1.0, forces_weight=1.0, stress_weight=1.0) -> None:
         super().__init__()

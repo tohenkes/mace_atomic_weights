@@ -40,7 +40,7 @@ class Configuration:
     charges: Optional[Charges] = None  # atomic unit
     cell: Optional[Cell] = None
     pbc: Optional[Pbc] = None
-
+    atomic_weights: Optional[np.ndarray] = None
     weight: float = 1.0  # weight of config in loss
     energy_weight: float = 1.0  # weight of config energy in loss
     forces_weight: float = 1.0  # weight of config forces in loss
@@ -135,7 +135,13 @@ def config_from_atoms(
     forces_weight = atoms.info.get("config_forces_weight", 1.0)
     stress_weight = atoms.info.get("config_stress_weight", 1.0)
     virials_weight = atoms.info.get("config_virials_weight", 1.0)
-
+    atomic_weights = atoms.arrays.get(
+        "atomic_weights",
+        np.ones(len(atoms))
+        ).reshape(
+        -1, 1
+    )
+    
     # fill in missing quantities but set their weight to 0.0
     if energy is None:
         energy = 0.0
@@ -170,6 +176,7 @@ def config_from_atoms(
         config_type=config_type,
         pbc=pbc,
         cell=cell,
+        atomic_weights=atomic_weights,
     )
 
 
